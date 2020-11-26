@@ -484,8 +484,12 @@ class Project {
     void setOpenShiftData(String sessionApiUrl) {
         def envConfig = getEnvironmentConfig()
         def targetApiUrl = envConfig?.apiUrl
+        def targetNamespace = envConfig?.namespace
         if (!targetApiUrl) {
             targetApiUrl = sessionApiUrl
+        }
+        if (targetNamespace) {
+            this.data.openshift['targetNamespace'] = targetNamespace
         }
         this.data.openshift['sessionApiUrl'] = sessionApiUrl
         this.data.openshift['targetApiUrl'] = targetApiUrl
@@ -528,13 +532,17 @@ class Project {
     }
 
     static String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
-        if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
-            def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
-            environment = "${environment}-${cleanedVersion}"
-        } else if (environment == 'qa') {
-            environment = 'test'
+        if (!this.data.openshift?.targetNamespace) {
+            if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
+                def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
+                environment = "${environment}-${cleanedVersion}"
+            } else if (environment == 'qa') {
+                environment = 'test'
+            }
+            environment   
+        } else {
+            this.data.openshift.targetNamespace.toLowerCase()
         }
-        environment
     }
 
     static List<String> getBuildEnvironment(IPipelineSteps steps, boolean debug = false, boolean versionedDevEnvsEnabled = false) {
