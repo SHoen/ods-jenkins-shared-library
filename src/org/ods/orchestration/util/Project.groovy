@@ -528,18 +528,17 @@ class Project {
     }
 
     String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
-        def envConfig = getEnvironmentConfig()
-        def targetNamespace = envConfig?.namespace
-        if (!targetNamespace) {
-            if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
-                def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
-                environment = "${environment}-${cleanedVersion}"
-            } else if (environment == 'qa') {
-                environment = 'test'
-            }
-            environment 
-        } else {
-            targetNamespace.toLowerCase()
+        if (environment == 'dev')
+        {
+            environment = 'test'
+        }
+        else if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
+            def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
+            environment = "${environment}-${cleanedVersion}"
+        } else if (environment == 'qa') {
+            environment = 'prod'
+        }
+        environment 
         }  
     }
 
