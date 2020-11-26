@@ -528,11 +528,14 @@ class Project {
 
     String getConcreteEnvironment() {
         def versionedDevEnvs = getVersionedDevEnvsEnabled()
-        getConcreteEnvironment(buildParams.targetEnvironment, buildParams.version, versionedDevEnvs)
+        if (!this.data.openshift?.targetNamespace) {
+            getConcreteEnvironment(buildParams.targetEnvironment, buildParams.version, versionedDevEnvs)
+        } else {
+            this.data.openshift.targetNamespace.toLowerCase()
+        }
     }
 
     static String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
-        if (!this.data.openshift?.targetNamespace) {
             if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
                 def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
                 environment = "${environment}-${cleanedVersion}"
@@ -540,9 +543,6 @@ class Project {
                 environment = 'test'
             }
             environment   
-        } else {
-            this.data.openshift.targetNamespace.toLowerCase()
-        }
     }
 
     static List<String> getBuildEnvironment(IPipelineSteps steps, boolean debug = false, boolean versionedDevEnvsEnabled = false) {
