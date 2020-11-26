@@ -524,26 +524,26 @@ class Project {
 
     String getConcreteEnvironment() {
         def versionedDevEnvs = getVersionedDevEnvsEnabled()
+        getConcreteEnvironment(buildParams.targetEnvironment, buildParams.version, versionedDevEnvs)
+    }
+
+    String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
         def envConfig = getEnvironmentConfig()
         def targetNamespace = envConfig?.namespace
         if (!targetNamespace) {
-            getConcreteEnvironment(buildParams.targetEnvironment, buildParams.version, versionedDevEnvs)
-        } else {
-            targetNamespace.toLowerCase()
-        }
-    }
-
-    static String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
             if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
                 def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
                 environment = "${environment}-${cleanedVersion}"
             } else if (environment == 'qa') {
                 environment = 'test'
             }
-            environment   
+            environment 
+        } else {
+            targetNamespace.toLowerCase()
+        }  
     }
 
-    static List<String> getBuildEnvironment(IPipelineSteps steps, boolean debug = false, boolean versionedDevEnvsEnabled = false) {
+    List<String> getBuildEnvironment(IPipelineSteps steps, boolean debug = false, boolean versionedDevEnvsEnabled = false) {
         def params = loadBuildParams(steps)
 
         def concreteEnv = getConcreteEnvironment(params.targetEnvironment, params.version, versionedDevEnvsEnabled)

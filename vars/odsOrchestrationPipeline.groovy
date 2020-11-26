@@ -75,7 +75,7 @@ def call(Map config) {
         ])
         logger.debugClocked('pipeline-git-releasemanager')
 
-        def envs = Project.getBuildEnvironment(steps, debug, versionedDevEnvsEnabled)
+        def envs = project.getBuildEnvironment(steps, debug, versionedDevEnvsEnabled)
 
         logger.startClocked('pod-template')
         withPodTemplate(odsImageTag, steps, alwaysPullImage) {
