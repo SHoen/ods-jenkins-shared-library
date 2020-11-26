@@ -538,8 +538,7 @@ class Project {
         } else if (environment == 'qa') {
             environment = 'prod'
         }
-        environment 
-        }  
+        environment   
     }
 
     List<String> getBuildEnvironment(IPipelineSteps steps, boolean debug = false, boolean versionedDevEnvsEnabled = false) {
