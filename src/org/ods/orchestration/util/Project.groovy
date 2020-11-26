@@ -484,12 +484,8 @@ class Project {
     void setOpenShiftData(String sessionApiUrl) {
         def envConfig = getEnvironmentConfig()
         def targetApiUrl = envConfig?.apiUrl
-        def targetNamespace = envConfig?.namespace
         if (!targetApiUrl) {
             targetApiUrl = sessionApiUrl
-        }
-        if (targetNamespace) {
-            this.data.openshift['targetNamespace'] = targetNamespace
         }
         this.data.openshift['sessionApiUrl'] = sessionApiUrl
         this.data.openshift['targetApiUrl'] = targetApiUrl
@@ -528,10 +524,12 @@ class Project {
 
     String getConcreteEnvironment() {
         def versionedDevEnvs = getVersionedDevEnvsEnabled()
-        if (!this.data.openshift?.targetNamespace) {
+        def envConfig = getEnvironmentConfig()
+        def targetNamespace = envConfig?.namespace
+        if (!targetNamespace) {
             getConcreteEnvironment(buildParams.targetEnvironment, buildParams.version, versionedDevEnvs)
         } else {
-           buildParams.targetEnvironment =  this.data.openshift.targetNamespace.toLowerCase()
+            targetNamespace.toLowerCase()
         }
     }
 
