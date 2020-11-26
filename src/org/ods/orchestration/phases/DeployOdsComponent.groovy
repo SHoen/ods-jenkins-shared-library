@@ -85,7 +85,7 @@ class DeployOdsComponent {
     }
 
     private void computeSourceProject() {
-        def sourceEnv = Project.getConcreteEnvironment(
+        def sourceEnv = project.getConcreteEnvironment(
             project.sourceEnv,
             project.buildParams.version.toString(),
             project.versionedDevEnvsEnabled
