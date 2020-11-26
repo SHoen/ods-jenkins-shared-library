@@ -531,7 +531,7 @@ class Project {
         if (!this.data.openshift?.targetNamespace) {
             getConcreteEnvironment(buildParams.targetEnvironment, buildParams.version, versionedDevEnvs)
         } else {
-            this.data.openshift.targetNamespace.toLowerCase()
+           buildParams.targetEnvironment =  this.data.openshift.targetNamespace.toLowerCase()
         }
     }
 
