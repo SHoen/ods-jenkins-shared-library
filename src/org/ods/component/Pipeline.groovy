@@ -216,7 +216,7 @@ class Pipeline implements Serializable {
                         logger.debugClocked("${config.podLabel}")
                         setBitbucketBuildStatus('INPROGRESS')
                         script.wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
-                            logger.info("SUBMODLUE ${context.submodlue}")
+                            logger.info("SUBMODULE ${context.submodule}")
                             gitService.checkout(
                                 context.gitCommit,
                                 [[credentialsId: context.credentialsId, url: context.gitUrl]],
