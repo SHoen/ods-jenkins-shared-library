@@ -133,10 +133,12 @@ class GitService {
     }
 
     void checkout(String gitCommit, def userRemoteConfigs) {
-      checkout(gitCommit, userRemoteConfigs, false)
+      checkout(gitCommit, userRemoteConfigs, true)
+      logger.info("without submodule")
     }
 
     void checkout(String gitCommit, def userRemoteConfigs, boolean doGenerateSubmoduleConfigurations) {
+        this.logger.info("doGenerateSubmoduleConfigurations = ${doGenerateSubmoduleConfigurations}")
         def gitParams = [
             $class: 'GitSCM',
             branches: [[name: gitCommit]],
