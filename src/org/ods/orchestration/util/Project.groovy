@@ -528,17 +528,27 @@ class Project {
     }
 
     String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
-        if (environment == 'dev')
-        {
-            environment = 'test'
+     
+       def envConfig = getEnvironmentConfig()
+        def namespace = envConfig?.namespace
+
+        if (!namespace) {
+            
+                // if (environment == 'dev')
+                // {
+                //     environment = 'test'
+                // }
+                // else 
+                if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
+                    def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
+                    environment = "${environment}-${cleanedVersion}"
+                } else if (environment == 'qa') {
+                    environment = 'prod'
+                }
+                environment   
+        } else {
+            namespace
         }
-        else if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
-            def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
-            environment = "${environment}-${cleanedVersion}"
-        } else if (environment == 'qa') {
-            environment = 'prod'
-        }
-        environment   
     }
 
     List<String> getBuildEnvironment(IPipelineSteps steps, boolean debug = false, boolean versionedDevEnvsEnabled = false) {
