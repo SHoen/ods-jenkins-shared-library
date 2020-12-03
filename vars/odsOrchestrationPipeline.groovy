@@ -74,7 +74,7 @@ def call(Map config) {
             userRemoteConfigs: scm.userRemoteConfigs,
         ])
         logger.debugClocked('pipeline-git-releasemanager')
-
+        prject.init()
         def envs = project.getBuildEnvironment(steps, debug, versionedDevEnvsEnabled)
 
         logger.startClocked('pod-template')
