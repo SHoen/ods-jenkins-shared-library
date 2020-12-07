@@ -537,19 +537,13 @@ class Project {
      
        def envConfig = getEnvironmentConfig()
         def namespace = envConfig?.namespace
-
+        this.logger.debug("Environment configfile: " + envConfig)
         if (!namespace) {
-            
-                // if (environment == 'dev')
-                // {
-                //     environment = 'test'
-                // }
-                // else 
                 if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
                     def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
                     environment = "${environment}-${cleanedVersion}"
                 } else if (environment == 'qa') {
-                    environment = 'prod'
+                    environment = 'test'
                 }
                 environment   
         } else {
