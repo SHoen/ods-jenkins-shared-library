@@ -1,14 +1,16 @@
 package org.ods.services
 
+import com.cloudbees.groovy.cps.NonCPS
 import groovy.json.JsonSlurperClassic
 import groovy.transform.TypeChecked
 import groovy.transform.TypeCheckingMode
 
 import org.ods.util.ILogger
 import org.ods.util.IPipelineSteps
+import org.ods.util.PodData
 import java.security.SecureRandom
 
-@SuppressWarnings('MethodCount')
+@SuppressWarnings(['ClassSize', 'MethodCount'])
 @TypeChecked
 class OpenShiftService {
 
@@ -95,7 +97,7 @@ class OpenShiftService {
         ).toString().trim()
     }
 
-    static String imageExists(IPipelineSteps steps, String project, String name, String tag) {
+    boolean imageExists(String project, String name, String tag) {
         steps.sh(
             returnStatus: true,
             script: "oc -n ${project} get istag ${name}:${tag} &> /dev/null",
@@ -107,29 +109,38 @@ class OpenShiftService {
         envExists(steps, project)
     }
 
-    def createVersionedDevelopmentEnvironment(String projectKey, String project, String sourceEnvName) {
-        def limit = 3
-        if (tooManyEnvironments(steps, "${projectKey}-dev-", limit)) {
-            throw new RuntimeException(
-                "Error: only ${limit} versioned ${projectKey}-dev-* environments are allowed. " +
-                'Please clean up and run the pipeline again.'
-            )
-        }
-        def tmpDir = "tmp-${project}"
-        steps.sh(
-            script: "mkdir -p ${tmpDir}",
-            label: "Ensure ${tmpDir} exists"
-        )
-        steps.dir(tmpDir) {
-            createProject(steps, project)
-            doTailorExport("${projectKey}-${sourceEnvName}", 'serviceaccount,rolebinding', [:], 'template.yml')
-            doTailorApply(project, 'serviceaccount,rolebinding --upsert-only')
-            steps.deleteDir()
-        }
-    }
-
     String getApiUrl() {
         getApiUrl(steps)
+    }
+
+    // helmUpgrade installs given "release" into "project" from the chart
+    // located in the working directory. If "withDiff" is true, a diff is
+    // performed beforehand.
+    @SuppressWarnings(['ParameterCount', 'LineLength'])
+    void helmUpgrade(
+        String project,
+        String release,
+        List<String> valuesFiles,
+        Map<String, String> values,
+        List<String> defaultFlags,
+        List<String> additionalFlags,
+        boolean withDiff) {
+        def upgradeFlags = defaultFlags.collect { it }
+        additionalFlags.collect { upgradeFlags << it }
+        valuesFiles.collect { upgradeFlags << "-f ${it}".toString() }
+        values.collect { k, v -> upgradeFlags << "--set ${k}=${v}".toString() }
+        if (withDiff) {
+            def diffFlags = upgradeFlags.findAll { it != '--atomic' }
+            diffFlags << '--no-color'
+            steps.sh(
+                script: "helm -n ${project} secrets diff upgrade ${diffFlags.join(' ')} ${release} ./",
+                label: "Show diff explaining what helm upgrade would change for release ${release} in ${project}"
+            )
+        }
+        steps.sh(
+            script: "helm -n ${project} secrets upgrade ${upgradeFlags.join(' ')} ${release} ./",
+            label: "Upgrade Helm release ${release} in ${project}"
+        )
     }
 
     @SuppressWarnings(['LineLength', 'ParameterCount'])
@@ -270,7 +281,7 @@ class OpenShiftService {
 
     int startBuild(String project, String name, String dir) {
         steps.sh(
-            script: "oc -n ${project} start-build ${name} --from-dir ${dir}",
+            script: "oc -n ${project} start-build ${name} --from-dir ${dir} ${logger.ocDebugFlag}",
             label: "Start Openshift build ${name}",
             returnStdout: true
         ).toString().trim()
@@ -357,7 +368,7 @@ class OpenShiftService {
         }
 
         steps.sh(
-            script: """oc -n ${project} patch bc ${name} --type=json --patch '[${patches.join(',')}]'""",
+            script: """oc -n ${project} patch bc ${name} --type=json --patch '[${patches.join(',')}]' ${logger.ocDebugFlag} """,
             label: "Patch BuildConfig ${name}"
         )
     }
@@ -413,7 +424,7 @@ class OpenShiftService {
     // Returns data about the pods (replicas) of the deployment.
     // If not all pods are running until the retries are exhausted,
     // an exception is thrown.
-    List<Map> getPodDataForDeployment(String project, String kind, String podManagerName, int retries) {
+    List<PodData> getPodDataForDeployment(String project, String kind, String podManagerName, int retries) {
         def label = getPodLabelForPodManager(project, kind, podManagerName)
         for (def i = 0; i < retries; i++) {
             def podData = checkForPodData(project, label)
@@ -431,7 +442,7 @@ class OpenShiftService {
         def items = steps.sh(
             script: """oc -n ${project} get ${kinds.join(',')} \
                 -l ${selector} \
-                -o jsonpath='{range .items[*]}{@.kind}:{@.metadata.name} {end}'""",
+                -o template='{{range .items}}{{.kind}}:{{.metadata.name}} {{end}}'""",
             returnStdout: true,
             label: "Getting all ${kinds.join(',')} names for selector '${selector}'"
         ).toString().trim().tokenize(' ')
@@ -556,7 +567,7 @@ class OpenShiftService {
                 )
                 // TODO: Once the orchestration pipeline can deal with multiple replicas,
                 // update this to return multiple pods.
-                pod = podData[0]
+                pod = podData[0].toMap()
             }
             pods[name] = pod
         }
@@ -584,6 +595,91 @@ class OpenShiftService {
         true
     }
 
+    // findOrCreateBuildConfig searches for a BuildConfig with "name" in "project",
+    // and if none is found, it creates one.
+    void findOrCreateBuildConfig(String project, String name, Map<String, String> labels = [:], String tag = "latest") {
+        if (!resourceExists(project, 'BuildConfig', name)) {
+            createBuildConfig(project, name, labels, tag)
+        }
+    }
+
+    // findOrCreateImageStream searches for a ImageStream with "name" in "project",
+    // and if none is found, it creates one.
+    void findOrCreateImageStream(String project, String name, Map<String, String> labels = [:]) {
+        if (!resourceExists(project, 'ImageStream', name)) {
+            createImageStream(project, name, labels)
+        }
+    }
+
+    private void createBuildConfig(String project, String name, Map<String, String> labels, String tag) {
+        logger.info "Creating BuildConfig ${name} in ${project} ... "
+        def bcYml = buildConfigBinaryYml(name, labels, tag)
+        createResource(project, bcYml)
+    }
+
+    private void createImageStream(String project, String name, Map<String, String> labels) {
+        logger.info "Creating ImageStream ${name} in ${project} ... "
+        def isYml = imageStreamYml(name, labels)
+        createResource(project, isYml)
+    }
+
+    @NonCPS
+    private String buildConfigBinaryYml(String name, Map<String,String> labels, String tag) {
+        """\
+          apiVersion: v1
+          kind: BuildConfig
+          metadata:
+            labels: {${labels.collect { k, v -> "${k}: '${v}'" }.join(', ')}}
+            name: ${name}
+          spec:
+            failedBuildsHistoryLimit: 5
+            nodeSelector: null
+            output:
+              to:
+                kind: ImageStreamTag
+                name: ${name}:${tag}
+            postCommit: {}
+            resources:
+              limits:
+                cpu: '1'
+                memory: '2Gi'
+              requests:
+                cpu: '200m'
+                memory: '1Gi'
+            runPolicy: Serial
+            source:
+              type: Binary
+              binary: {}
+            strategy:
+              type: Docker
+              dockerStrategy: {}
+            successfulBuildsHistoryLimit: 5
+        """.stripIndent()
+    }
+
+    @NonCPS
+    private String imageStreamYml(String name, Map<String,String> labels) {
+        """\
+          apiVersion: v1
+          kind: ImageStream
+          metadata:
+            labels: {${labels.collect { k, v -> "${k}: '${v}'" }.join(', ')}}
+            name: ${name}
+          spec:
+            lookupPolicy:
+              local: false
+        """.stripIndent()
+    }
+
+    private String createResource(String project, String yml) {
+        def filename = ".${UUID.randomUUID().toString()}.yml"
+        steps.writeFile(file: filename, text: yml)
+        steps.sh """
+            oc -n ${project} create -f ${filename};
+            rm ${filename}
+        """
+    }
+
     private String getJSONPath(String project, String kind, String name, String jsonPath) {
         steps.sh(
             script: "oc -n ${project} get ${kind}/${name} -o jsonpath='${jsonPath}'",
@@ -606,7 +702,8 @@ class OpenShiftService {
     // checkForPodData returns a subset of information from every pod, once
     // all pods matching the label are "running". If this is not the case,
     // it returns an empty list.
-    private List<Map> checkForPodData(String project, String label) {
+    private List<PodData> checkForPodData(String project, String label) {
+        List<PodData> pods = []
         def stdout = steps.sh(
             script: "oc -n ${project} get pod -l ${label} -o json",
             returnStdout: true,
@@ -614,9 +711,9 @@ class OpenShiftService {
         ).toString().trim()
         def podJson = new JsonSlurperClassic().parseText(stdout)
         if (podJson && podJson.items.collect { it.status?.phase?.toLowerCase() }.every { it == 'running' }) {
-            return extractPodData(podJson)
+            pods = extractPodData(podJson)
         }
-        []
+        pods
     }
 
     private String getPodManagerName(String project, String kind, String name, int revision) {
@@ -760,7 +857,7 @@ class OpenShiftService {
     private void restartRollout(String project, String name, int version) {
         try {
             steps.sh(
-                script: "oc -n ${project} rollout restart deployment/${name}",
+                script: "oc -n ${project} rollout restart deployment/${name} ${logger.ocDebugFlag}",
                 label: "Rollout restart of deployment/${name}"
             )
         } catch (ex) {
@@ -785,10 +882,9 @@ class OpenShiftService {
 
     private void reloginToCurrentClusterIfNeeded() {
         def kubeUrl = steps.env.KUBERNETES_MASTER ?: 'https://kubernetes.default:443'
-        def logDetails = logger.debugMode ? '' : 'set +x'
         def success = steps.sh(
             script: """
-                ${logDetails}
+               ${logger.shellScriptDebugFlag}
                 oc login ${kubeUrl} --insecure-skip-tls-verify=true \
                 --token=\$(cat /run/secrets/kubernetes.io/serviceaccount/token) &> /dev/null
             """,
@@ -825,7 +921,8 @@ class OpenShiftService {
             script: """
               oc -n ${project} import-image ${targetImageRef} \
                 --from=${sourceImageFull} \
-                --confirm
+                --confirm \
+                ${logger.ocDebugFlag}
             """,
             label: "Import image ${sourceImageFull} into ${project}/${targetImageRef}"
         )
@@ -833,8 +930,8 @@ class OpenShiftService {
 
     @SuppressWarnings(['CyclomaticComplexity', 'AbcMetric'])
     @TypeChecked(TypeCheckingMode.SKIP)
-    private List<Map> extractPodData(Map podJson) {
-        def podData = []
+    private List<PodData> extractPodData(Map podJson) {
+        List<PodData> pods = []
         podJson.items.each { podOCData ->
             def pod = [:]
             // Only set needed data on "pod"
@@ -850,6 +947,11 @@ class OpenShiftService {
             pod.podStatus = podOCData.status?.phase ?: 'N/A'
             pod.podStartupTimeStamp = podOCData.status?.startTime ?: 'N/A'
             pod.containers = [:]
+            // We need to get the image SHA from the containerStatuses, and not
+            // from the pod spec because the pod spec image field is optional
+            // and may not contain an image SHA, but e.g. a tag, depending on
+            // the pod manager (e.g. ReplicationController, ReplicaSet). See
+            // https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#container-v1-core.
             podOCData.spec?.containers?.each { container ->
                 podOCData.status?.containerStatuses?.each { containerStatus ->
                     if (containerStatus.name == container.name) {
@@ -857,9 +959,9 @@ class OpenShiftService {
                     }
                 }
             }
-            podData << pod
+            pods << new PodData(pod)
         }
-        podData
+        pods
     }
 
     private String tailorVerboseFlag() {

@@ -1,24 +1,34 @@
 package org.ods.component
 
+import groovy.transform.TypeChecked
+import groovy.transform.TypeCheckingMode
 import org.ods.services.OpenShiftService
 import org.ods.services.JenkinsService
 import org.ods.util.ILogger
+import org.ods.util.PodData
 
 @SuppressWarnings('ParameterCount')
+@TypeChecked
 class RolloutOpenShiftDeploymentStage extends Stage {
 
     public final String STAGE_NAME = 'Deploy to OpenShift'
+    private final List<String> DEPLOYMENT_KINDS = [
+        OpenShiftService.DEPLOYMENT_KIND, OpenShiftService.DEPLOYMENTCONFIG_KIND,
+    ]
     private final OpenShiftService openShift
     private final JenkinsService jenkins
+    private final RolloutOpenShiftDeploymentOptions options
 
+    @SuppressWarnings(['AbcMetric', 'CyclomaticComplexity'])
+    @TypeChecked(TypeCheckingMode.SKIP)
     RolloutOpenShiftDeploymentStage(
         def script,
         IContext context,
-        Map config,
+        Map<String, Object> config,
         OpenShiftService openShift,
         JenkinsService jenkins,
         ILogger logger) {
-        super(script, context, config, logger)
+        super(script, context, logger)
         if (!config.selector) {
             config.selector = context.selector
         }
@@ -31,11 +41,37 @@ class RolloutOpenShiftDeploymentStage extends Stage {
         if (!config.deployTimeoutRetries) {
             config.deployTimeoutRetries = context.openshiftRolloutTimeoutRetries ?: 5
         }
+        // Helm options
+        if (!config.chartDir) {
+            config.chartDir = 'chart'
+        }
+        if (!config.containsKey('helmReleaseName')) {
+            config.helmReleaseName = context.componentId
+        }
+        if (!config.containsKey('helmValues')) {
+            config.helmValues = [:]
+        }
+        if (!config.containsKey('helmValuesFiles')) {
+            config.helmValuesFiles = []
+        }
+        if (!config.containsKey('helmDefaultFlags')) {
+            config.helmDefaultFlags = ['--install', '--atomic']
+        }
+        if (!config.containsKey('helmAdditionalFlags')) {
+            config.helmAdditionalFlags = []
+        }
+        if (!config.containsKey('helmDiff')) {
+            config.helmDiff = true
+        }
+        if (!config.helmPrivateKeyCredentialsId) {
+            config.helmPrivateKeyCredentialsId = "${context.cdProject}-helm-private-key"
+        }
+        // Tailor options
         if (!config.openshiftDir) {
             config.openshiftDir = 'openshift'
         }
         if (!config.tailorPrivateKeyCredentialsId) {
-            config.tailorPrivateKeyCredentialsId = "${context.projectId}-cd-tailor-private-key"
+            config.tailorPrivateKeyCredentialsId = "${context.cdProject}-tailor-private-key"
         }
         if (!config.tailorSelector) {
             config.tailorSelector = config.selector
@@ -55,6 +91,8 @@ class RolloutOpenShiftDeploymentStage extends Stage {
         if (!config.containsKey('tailorParams')) {
             config.tailorParams = []
         }
+
+        this.options = new RolloutOpenShiftDeploymentOptions(config)
         this.openShift = openShift
         this.jenkins = jenkins
     }
@@ -64,59 +102,112 @@ class RolloutOpenShiftDeploymentStage extends Stage {
             logger.warn 'Skipping because of empty (target) environment ...'
             return
         }
-        def deploymentKinds = [OpenShiftService.DEPLOYMENT_KIND, OpenShiftService.DEPLOYMENTCONFIG_KIND]
 
         def deploymentResources = openShift.getResourcesForComponent(
-            context.targetProject, deploymentKinds, config.selector
+            context.targetProject, DEPLOYMENT_KINDS, options.selector
         )
         if (context.triggeredByOrchestrationPipeline
             && deploymentResources.containsKey(OpenShiftService.DEPLOYMENT_KIND)) {
-            script.error "Deployment resources cannot be used in the orchestration pipeline yet."
+            steps.error "Deployment resources cannot be used in the orchestration pipeline yet."
             return
         }
         def originalDeploymentVersions = fetchOriginalVersions(deploymentResources)
 
-        if (script.fileExists(config.openshiftDir)) {
-            script.dir(config.openshiftDir) {
-                jenkins.maybeWithPrivateKeyCredentials(config.tailorPrivateKeyCredentialsId) { pkeyFile ->
-                    openShift.tailorApply(
-                        context.targetProject,
-                        [selector: config.tailorSelector, exclude: config.tailorExclude],
-                        config.tailorParamFile,
-                        config.tailorParams,
-                        config.tailorPreserve,
-                        pkeyFile,
-                        config.tailorVerify
-                    )
-                }
+        // Tag images which have been built in this pipeline from cd project into target project
+        retagImages(context.targetProject, getBuiltImages())
+
+        def refreshResources = false
+        if (steps.fileExists("${options.chartDir}/Chart.yaml")) {
+            if (context.triggeredByOrchestrationPipeline) {
+                steps.error "Helm cannot be used in the orchestration pipeline yet."
+                return
             }
+            helmUpgrade(context.targetProject)
+            refreshResources = true
+        } else if (steps.fileExists(options.openshiftDir)) {
+            tailorApply(context.targetProject)
+            refreshResources = true
         }
 
-        deploymentResources = openShift.getResourcesForComponent(
-            context.targetProject, deploymentKinds, config.selector
-        )
+        if (refreshResources) {
+            deploymentResources = openShift.getResourcesForComponent(
+                context.targetProject, DEPLOYMENT_KINDS, options.selector
+            )
+        }
         return rollout(deploymentResources, originalDeploymentVersions)
     }
 
     protected String stageLabel() {
-        if (config.selector != context.selector) {
-            return "${STAGE_NAME} (${config.selector})"
+        if (options.selector != context.selector) {
+            return "${STAGE_NAME} (${options.selector})"
         }
         STAGE_NAME
     }
 
-    // rollout returns something like this:
+    @TypeChecked(TypeCheckingMode.SKIP)
+    private Set<String> getBuiltImages() {
+        context.buildArtifactURIs.builds.keySet()
+    }
+
+    private void tailorApply(String targetProject) {
+        steps.dir(options.openshiftDir) {
+            jenkins.maybeWithPrivateKeyCredentials(options.tailorPrivateKeyCredentialsId) { String pkeyFile ->
+                openShift.tailorApply(
+                    targetProject,
+                    [selector: options.tailorSelector, exclude: options.tailorExclude],
+                    options.tailorParamFile,
+                    options.tailorParams,
+                    options.tailorPreserve,
+                    pkeyFile,
+                    options.tailorVerify
+                )
+            }
+        }
+    }
+
+    private void helmUpgrade(String targetProject) {
+        steps.dir(options.chartDir) {
+            jenkins.maybeWithPrivateKeyCredentials(options.helmPrivateKeyCredentialsId) { String pkeyFile ->
+                if (pkeyFile) {
+                    steps.sh(script: "gpg --import ${pkeyFile}", label: 'Import private key into keyring')
+                }
+                options.helmValues.imageTag = options.imageTag
+                openShift.helmUpgrade(
+                    targetProject,
+                    options.helmReleaseName,
+                    options.helmValuesFiles,
+                    options.helmValues,
+                    options.helmDefaultFlags,
+                    options.helmAdditionalFlags,
+                    options.helmDiff
+                )
+            }
+        }
+    }
+
+    private void retagImages(String targetProject, Set<String> images) {
+        images.each { image ->
+            findOrCreateImageStream(targetProject, image)
+            openShift.importImageTagFromProject(
+                targetProject, image, context.cdProject, options.imageTag, options.imageTag
+            )
+        }
+    }
+
+    private findOrCreateImageStream(String targetProject, String image) {
+        try {
+            openShift.findOrCreateImageStream(targetProject, image)
+        } catch (Exception ex) {
+            steps.error "Could not find/create ImageStream ${image} in ${targetProject}. Error was: ${ex}"
+        }
+    }
+
+    // rollout returns a map like this:
     // [
-    //    DeploymentConfig: [
-    //      foo: [[podName: 'foo-a'], [podName: 'foo-b']],
-    //      bar: [[podName: 'bar-a']]
-    //    ],
-    //    Deployment: [
-    //      baz: [[podName: 'baz-a']]
-    //    ],
+    //    'DeploymentConfig/foo': [[podName: 'foo-a', ...], [podName: 'foo-b', ...]],
+    //    'Deployment/bar': [[podName: 'bar-a', ...]]
     // ]
-    // TODO: Change this from map/list to a typed structure.
-    private Map<String, Map<String, List<Map>>> rollout(
+    private Map<String, List<PodData>> rollout(
         Map<String, List<String>> deploymentResources,
         Map<String, Map<String, Integer>> originalVersions) {
         def rolloutData = [:]
@@ -129,28 +220,24 @@ class RolloutOpenShiftDeploymentStage extends Stage {
 
                 def podData = rolloutDeployment(resourceKind, resourceName, originalVersion)
 
-                if (!rolloutData.containsKey(resourceKind)) {
-                    rolloutData[resourceKind] = [:]
-                }
-                rolloutData[resourceKind][resourceName] = podData
+                rolloutData["${resourceKind}/${resourceName}"] = podData
                 // TODO: Once the orchestration pipeline can deal with multiple replicas,
                 // update this to store multiple pod artifacts.
                 // TODO: Potential conflict if resourceName is duplicated between
                 // Deployment and DeploymentConfig resource.
-                def pod = podData[0]
-                context.addDeploymentToArtifactURIs(resourceName, pod)
+                context.addDeploymentToArtifactURIs(resourceName, podData[0]?.toMap())
             }
         }
         rolloutData
     }
 
-    private List<Map> rolloutDeployment(String resourceKind, String resourceName, int originalVersion) {
+    private List<PodData> rolloutDeployment(String resourceKind, String resourceName, int originalVersion) {
         def ownedImageStreams = openShift
             .getImagesOfDeployment(context.targetProject, resourceKind, resourceName)
             .findAll { context.targetProject == it.repository }
         def missingStreams = missingImageStreams(ownedImageStreams)
         if (missingStreams) {
-            script.error "The following ImageStream resources  for ${resourceKind} '${resourceName}' " +
+            steps.error "The following ImageStream resources  for ${resourceKind} '${resourceName}' " +
                 """do not exist: '${missingStreams.collect { "${it.repository}/${it.name}" }}'. """ +
                 'Verify that you have setup the OpenShift resources correctly.'
         }
@@ -164,17 +251,17 @@ class RolloutOpenShiftDeploymentStage extends Stage {
                 resourceKind,
                 resourceName,
                 originalVersion,
-                config.deployTimeoutMinutes
+                options.deployTimeoutMinutes
             )
         } catch (ex) {
-            script.error ex.message
+            steps.error ex.message
         }
 
         return openShift.getPodDataForDeployment(
             context.targetProject,
             resourceKind,
             podManager,
-            config.deployTimeoutRetries
+            options.deployTimeoutRetries
         )
     }
 
@@ -198,7 +285,7 @@ class RolloutOpenShiftDeploymentStage extends Stage {
     }
 
     private void setImageTagLatest(List<Map<String, String>> imageStreams) {
-        imageStreams.each { openShift.setImageTag(context.targetProject, it.name, config.imageTag, 'latest') }
+        imageStreams.each { openShift.setImageTag(context.targetProject, it.name, options.imageTag, 'latest') }
     }
 
 }
