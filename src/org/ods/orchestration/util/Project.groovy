@@ -235,6 +235,7 @@ class Project {
     protected JiraUseCase jiraUseCase
     protected ILogger logger
     protected Map config
+    protected String targetProject
 
     protected Map data = [:]
 
@@ -528,9 +529,13 @@ class Project {
         this.config.get('versionedDevEnvs', false)
     }
 
-    String getConcreteEnvironment() {
-        def versionedDevEnvs = getVersionedDevEnvsEnabled()
-        getConcreteEnvironment(buildParams.targetEnvironment, buildParams.version, versionedDevEnvs)
+    String getSourceProject() {
+        def sEnv = Project.getConcreteEnvironment(
+            getSourceEnv(),
+            buildParams.version.toString(),
+            getVersionedDevEnvsEnabled()
+        )
+        "${getKey()}-${sEnv}"
     }
 
     String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
@@ -793,7 +798,11 @@ class Project {
     }
 
     String getTargetProject() {
-        "${getKey()}-${getConcreteEnvironment()}"
+        this.targetProject
+    }
+
+    String setTargetProject(def proj) {
+        this.targetProject = proj
     }
 
     static Map loadBuildParams(IPipelineSteps steps) {

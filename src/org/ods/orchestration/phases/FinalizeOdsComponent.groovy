@@ -122,9 +122,10 @@ class FinalizeOdsComponent {
         // Verify that all DCs are managed by ODS
         def odsBuiltDeploymentInformation = repo.data.openshift.deployments ?: [:]
         def odsBuiltDeployments = odsBuiltDeploymentInformation.keySet()
-        def allComponentDeployments = os.getDeploymentConfigsForComponent(
-            project.targetProject, componentSelector
+        def allComponentDeploymentsByKind = os.getResourcesForComponent(
+            project.targetProject, [OpenShiftService.DEPLOYMENTCONFIG_KIND], componentSelector
         )
+        def allComponentDeployments = allComponentDeploymentsByKind[OpenShiftService.DEPLOYMENTCONFIG_KIND]
         logger.debug(
             "ODS created deployments for ${repo.id}: " +
             "${odsBuiltDeployments}, all deployments: ${allComponentDeployments}"
@@ -146,13 +147,15 @@ class FinalizeOdsComponent {
         }
 
         def imagesFromOtherProjectsFail = []
+        // All images in *-cd are also present in *-dev, *-test, etc. so even
+        // if the underlying image points to *-cd, we can continue.
+        def excludedProjects = MROPipelineUtil.EXCLUDE_NAMESPACES_FROM_IMPORT + ["${project.key}-cd".toString()]
         odsBuiltDeploymentInformation.each { String odsBuiltDeploymentName, Map odsBuiltDeployment ->
             odsBuiltDeployment.containers?.each { String containerName, String containerImage ->
                 def owningProject = os.imageInfoWithShaForImageStreamUrl(containerImage).repository
-                if (project.targetProject != owningProject
-                    && !MROPipelineUtil.EXCLUDE_NAMESPACES_FROM_IMPORT.contains(owningProject)) {
+                if (project.targetProject != owningProject && !excludedProjects.contains(owningProject)) {
                     def msg = "Deployment: ${odsBuiltDeploymentName} / " +
-                        "Container: ${containerName} / Owner: ${owningProject}"
+                        "Container: ${containerName} / Owner: ${owningProject}/ Excluded Projects: ${excludedProjects}"
                     logger.warn "! Image out of scope! ${msg}"
                     imagesFromOtherProjectsFail << msg
                 }
