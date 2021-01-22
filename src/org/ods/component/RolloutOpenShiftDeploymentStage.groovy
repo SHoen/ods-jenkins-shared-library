@@ -35,11 +35,11 @@ class RolloutOpenShiftDeploymentStage extends Stage {
         if (!config.imageTag) {
             config.imageTag = context.shortGitCommit
         }
-        if (!config.deployTimeoutMinutes) {
+        if (!config.) {
             config.deployTimeoutMinutes = context.openshiftRolloutTimeout ?: 5
         }
         if (!config.deployTimeoutRetries) {
-            config.deployTimeoutRetries = context.openshiftRolloutTimeoutRetries ?: 5
+            config.deployTimeoutRetries = context.openshiftRolloutTimeoutRetries ?: 10
         }
         // Helm options
         if (!config.chartDir) {
