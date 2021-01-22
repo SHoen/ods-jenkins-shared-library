@@ -375,7 +375,7 @@ class InitStage extends Stage {
         def os = registry.get(OpenShiftService)
 
         // Compute target project. For now, the existance of DEV on the same cluster is verified.
-        def concreteEnv = Project.getConcreteEnvironment(
+        def concreteEnv = project.getConcreteEnvironment(
             project.buildParams.targetEnvironment,
             project.buildParams.version.toString(),
             project.versionedDevEnvsEnabled

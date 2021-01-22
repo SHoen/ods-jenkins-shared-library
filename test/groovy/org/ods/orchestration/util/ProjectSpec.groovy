@@ -265,7 +265,7 @@ class ProjectSpec extends SpecHelper {
 
     def "get concrete environments"() {
         expect:
-        Project.getConcreteEnvironment(environment, version, versionedDevEnvsEnabled) == result
+        project.getConcreteEnvironment(environment, version, versionedDevEnvsEnabled) == result
 
         where:
         environment | version | versionedDevEnvsEnabled || result

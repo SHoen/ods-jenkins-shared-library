@@ -530,7 +530,7 @@ class Project {
     }
 
     String getSourceProject() {
-        def sEnv = Project.getConcreteEnvironment(
+        def sEnv = project.getConcreteEnvironment(
             getSourceEnv(),
             buildParams.version.toString(),
             getVersionedDevEnvsEnabled()
