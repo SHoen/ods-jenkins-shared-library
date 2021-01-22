@@ -35,7 +35,7 @@ class RolloutOpenShiftDeploymentStage extends Stage {
         if (!config.imageTag) {
             config.imageTag = context.shortGitCommit
         }
-        if (!config.) {
+        if (!config.deployTimeoutMinutes) {
             config.deployTimeoutMinutes = context.openshiftRolloutTimeout ?: 5
         }
         if (!config.deployTimeoutRetries) {
