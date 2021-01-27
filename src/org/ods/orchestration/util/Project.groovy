@@ -530,6 +530,9 @@ class Project {
     }
 
     String getSourceProject() {
+        this.logger.debug("getSourceEnv(): " + getSourceEnv())
+        this.logger.debug("buildParams.version.toString(): " +  buildParams.version.toString())
+        this.logger.debug("getVersionedDevEnvsEnabled(): " +  getVersionedDevEnvsEnabled())
         def sEnv = project.getConcreteEnvironment(
             getSourceEnv(),
             buildParams.version.toString(),
