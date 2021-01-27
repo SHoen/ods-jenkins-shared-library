@@ -533,7 +533,7 @@ class Project {
         this.logger.debug("getSourceEnv(): " + getSourceEnv())
         this.logger.debug("buildParams.version.toString(): " +  buildParams.version.toString())
         this.logger.debug("getVersionedDevEnvsEnabled(): " +  getVersionedDevEnvsEnabled())
-        def sEnv = project.getConcreteEnvironment(
+        def sEnv = getConcreteEnvironment(
             getSourceEnv(),
             buildParams.version.toString(),
             getVersionedDevEnvsEnabled()
