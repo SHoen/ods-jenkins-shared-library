@@ -328,6 +328,7 @@ class MROPipelineUtil extends PipelineUtil {
                         if (this.project.isAssembleMode && name == PipelinePhases.BUILD) {
                             executeODSComponent(repo, baseDir)
                         } else if (this.project.isPromotionMode && name == PipelinePhases.DEPLOY) {
+                            this.logger.debug("SourceProject1: "+ project.sourceProject)
                             new DeployOdsComponent(project, steps, git, logger).run(repo, baseDir)
                         } else if (this.project.isAssembleMode && PipelinePhases.FINALIZE) {
                             new FinalizeOdsComponent(project, steps, git, logger).run(repo, baseDir)
