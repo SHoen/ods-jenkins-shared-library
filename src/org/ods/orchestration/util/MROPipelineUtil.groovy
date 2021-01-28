@@ -305,7 +305,7 @@ class MROPipelineUtil extends PipelineUtil {
     Set<Closure> prepareExecutePhaseForRepoNamedJob(String name, Map repo, Closure preExecute = null, Closure postExecute = null) {
         return [
             repo.id,
-            {
+            {   this.logger.debug("SourceProject1: "+ project.sourceProject)
                 this.executeBlockAndFailBuild {
                     def baseDir = "${this.steps.env.WORKSPACE}/${REPOS_BASE_DIR}/${repo.id}"
                     def targetEnvToken = this.project.buildParams.targetEnvironmentToken
@@ -328,7 +328,7 @@ class MROPipelineUtil extends PipelineUtil {
                         if (this.project.isAssembleMode && name == PipelinePhases.BUILD) {
                             executeODSComponent(repo, baseDir)
                         } else if (this.project.isPromotionMode && name == PipelinePhases.DEPLOY) {
-                            this.logger.debug("SourceProject1: "+ project.sourceProject)
+                           
                             new DeployOdsComponent(project, steps, git, logger).run(repo, baseDir)
                         } else if (this.project.isAssembleMode && PipelinePhases.FINALIZE) {
                             new FinalizeOdsComponent(project, steps, git, logger).run(repo, baseDir)
