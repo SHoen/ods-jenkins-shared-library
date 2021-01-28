@@ -539,9 +539,9 @@ class Project {
     }
 
     String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
-     
-       def envConfig = getEnvironments()
-        def namespace = envConfig.[environment]?.namespace
+        def environments = getEnvironments()
+        def envConfig = environments[environment]
+        def namespace = envConfig?.namespace
         this.logger.debug("Environment configfile: " + envConfig)
         if (!namespace) {
                 if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
