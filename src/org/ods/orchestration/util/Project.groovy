@@ -536,19 +536,19 @@ class Project {
             getVersionedDevEnvsEnabled()
         )
         "${getKey()}-${sEnv}"
-        this.logger.debug("getSourceProject(): " + getKey() + "-" + sEnv)
     }
 
     String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
      
-       def envConfig = getEnvironmentConfig()
-        def namespace = envConfig?.namespace
+       def envConfig = getEnvironments()
+        def namespace = envConfig.[environment]?.namespace
         this.logger.debug("Environment configfile: " + envConfig)
         if (!namespace) {
                 if (versionedDevEnvsEnabled && environment == 'dev' && version != BUILD_PARAM_VERSION_DEFAULT) {
                     def cleanedVersion = version.replaceAll('[^A-Za-z0-9-]', '-').toLowerCase()
                     environment = "${environment}-${cleanedVersion}"
                 } else if (environment == 'qa') {
+
                     environment = 'test'
                 }
                 environment   
