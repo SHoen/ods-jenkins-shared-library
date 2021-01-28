@@ -536,6 +536,7 @@ class Project {
             getVersionedDevEnvsEnabled()
         )
         "${getKey()}-${sEnv}"
+        this.logger.debug("getSourceProject(): " + getKey() + "-" + sEnv)
     }
 
     String getConcreteEnvironment(String environment, String version, boolean versionedDevEnvsEnabled) {
