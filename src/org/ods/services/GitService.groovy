@@ -153,11 +153,18 @@ class GitService {
                  || gitCommitSubject.contains('***noci***'))
     }
 
-    void checkout(String gitCommit, def userRemoteConfigs) {
+    void checkout(
+        def branches,
+        def extensions,
+        def userRemoteConfigs,
+        boolean doGenerateSubmoduleConfigurations = false) {
+        if (branches instanceof String || branches instanceof GString) {
+            branches = [[name: branches]]
+        }
         def gitParams = [
             $class: 'GitSCM',
-            branches: [[name: gitCommit]],
-            doGenerateSubmoduleConfigurations: false,
+            branches: branches,
+            doGenerateSubmoduleConfigurations: doGenerateSubmoduleConfigurations,
             extensions: [[
                     $class: 'SubmoduleOption',
                     disableSubmodules: false,
@@ -170,6 +177,9 @@ class GitService {
             submoduleCfg: [],
             userRemoteConfigs: userRemoteConfigs,
         ]
+        if (assert  !extensions.empty) {
+            gitParams.extensions.plus(extensions)
+        }
         if (isAgentNodeGitLfsEnabled()) {
             gitParams.extensions << [$class: 'GitLFSPull']
         }
@@ -216,20 +226,6 @@ class GitService {
             script: "git push --tags origin ${name}",
             label: "Push branch ${name} with tags"
         )
-    }
-
-    def checkout(
-        String gitRef,
-        def extensions,
-        def userRemoteConfigs,
-        boolean doGenerateSubmoduleConfigurations = false) {
-        script.checkout([
-            $class: 'GitSCM',
-            branches: [[name: gitRef]],
-            doGenerateSubmoduleConfigurations: doGenerateSubmoduleConfigurations,
-            extensions: extensions,
-            userRemoteConfigs: userRemoteConfigs,
-        ])
     }
 
     boolean remoteTagExists(String name) {
