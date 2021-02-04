@@ -177,7 +177,7 @@ class GitService {
             submoduleCfg: [],
             userRemoteConfigs: userRemoteConfigs,
         ]
-        if (assert  !extensions.empty) {
+        if (!extensions.empty) {
             gitParams.extensions.plus(extensions)
         }
         if (isAgentNodeGitLfsEnabled()) {
