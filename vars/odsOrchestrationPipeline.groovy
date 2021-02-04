@@ -31,7 +31,7 @@ def call(Map config) {
     def debug = config.get('debug', false)
     ServiceRegistry.instance.add(Logger, new Logger(this, debug))
     ILogger logger = ServiceRegistry.instance.get(Logger)
-      def git = new GitService(steps, logger)
+    def git = new GitService(steps, logger)
 
     def odsImageTag = config.odsImageTag
     if (!odsImageTag) {
@@ -71,7 +71,7 @@ def call(Map config) {
         git.checkout(
             scmBranches,
             [[$class: 'LocalBranch', localBranch: '**']],
-            scm.userRemoteConfigs
+            scm.userRemoteConfigs,
             scm.doGenerateSubmoduleConfigurations
             )
         logger.debugClocked('pipeline-git-releasemanager')

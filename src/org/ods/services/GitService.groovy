@@ -152,15 +152,24 @@ class GitService {
                  || gitCommitSubject.contains('[skipci]')
                  || gitCommitSubject.contains('***noci***'))
     }
-
+    void checkout(
+        String branches,
+        def extensions,
+        def userRemoteConfigs,
+        boolean doGenerateSubmoduleConfigurations = false) {
+        branches = [[name: branches]]
+        this.checkout(
+            branches,
+            extensions,
+            userRemoteConfigs,
+            doGenerateSubmoduleConfigurations
+        )
+        }
     void checkout(
         def branches,
         def extensions,
         def userRemoteConfigs,
         boolean doGenerateSubmoduleConfigurations = false) {
-        if (branches instanceof String || branches instanceof GString) {
-            branches = [[name: branches]]
-        }
         def gitParams = [
             $class: 'GitSCM',
             branches: branches,
@@ -178,7 +187,7 @@ class GitService {
             userRemoteConfigs: userRemoteConfigs,
         ]
         if (!extensions.empty) {
-            gitParams.extensions.plus(extensions)
+            gitParams.extensions + extensions
         }
         if (isAgentNodeGitLfsEnabled()) {
             gitParams.extensions << [$class: 'GitLFSPull']

@@ -65,19 +65,19 @@ class InitStage extends Stage {
                     )
                 }
                 logger.info("Checkout release manager repository @ ${baseTag}")
-                    git.checkout(
-                        "refs/tags/${baseTag}", 
-                        [[$class: 'LocalBranch', localBranch: gitReleaseBranch]], 
-                        script.scm.userRemoteConfigs
-                    )
+                git.checkout(
+                    "refs/tags/${baseTag}",
+                    [[$class: 'LocalBranch', localBranch: gitReleaseBranch]],
+                    script.scm.userRemoteConfigs
+                )
             } else {
                 if (git.remoteBranchExists(gitReleaseBranch)) {
                     logger.info("Checkout release manager repository @ ${gitReleaseBranch}")
-                       git.checkout(
-                            "*/${gitReleaseBranch}", 
-                            [[$class: 'LocalBranch', localBranch: gitReleaseBranch]], 
-                            script.scm.userRemoteConfigs
-                        )
+                    git.checkout(
+                        "*/${gitReleaseBranch}",
+                        [[$class: 'LocalBranch', localBranch: gitReleaseBranch]],
+                        script.scm.userRemoteConfigs
+                    )
                 } else {
                     git.checkoutNewLocalBranch(gitReleaseBranch)
                 }
