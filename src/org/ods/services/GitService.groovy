@@ -181,8 +181,8 @@ class GitService {
                     recursiveSubmodules: true,
                     reference: '',
                     trackingSubmodules: false],
-                   [$class: 'CleanBeforeCheckout'],
-                   [$class: 'CleanCheckout']],
+                //    [$class: 'CleanBeforeCheckout'],
+                //    [$class: 'CleanCheckout']],
             submoduleCfg: [],
             userRemoteConfigs: userRemoteConfigs,
         ]
