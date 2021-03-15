@@ -182,7 +182,8 @@ class GitService {
                     reference: '',
                     trackingSubmodules: false],
                 //    [$class: 'CleanBeforeCheckout'],
-                //    [$class: 'CleanCheckout']],
+                //    [$class: 'CleanCheckout']
+                    ],
             submoduleCfg: [],
             userRemoteConfigs: userRemoteConfigs,
         ]
