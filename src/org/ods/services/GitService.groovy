@@ -153,11 +153,11 @@ class GitService {
                  || gitCommitSubject.contains('***noci***'))
     }
     void checkout(
-        String branches,
+        String branch,
         def extensions,
         def userRemoteConfigs,
         boolean doGenerateSubmoduleConfigurations = false) {
-        branches = [[name: branches]]
+        def branches = [[name: branch]]
         this.checkout(
             branches,
             extensions,
