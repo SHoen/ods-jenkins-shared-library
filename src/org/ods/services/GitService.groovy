@@ -188,9 +188,9 @@ class GitService {
             userRemoteConfigs: userRemoteConfigs,
         ]
         if (!extensions.empty) {
-            this.logger.debug(gitParams.extensions)
+            this.logger.debug("GitParams: " + gitParams.extensions)
             gitParams.extensions + extensions
-            this.logger.debug(gitParams.extensions)
+            this.logger.debug("GitParams: " + gitParams.extensions)
         }
         if (isAgentNodeGitLfsEnabled()) {
             gitParams.extensions << [$class: 'GitLFSPull']
