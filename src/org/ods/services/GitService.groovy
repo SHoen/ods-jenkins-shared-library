@@ -181,16 +181,17 @@ class GitService {
                     recursiveSubmodules: true,
                     reference: '',
                     trackingSubmodules: false],
-                //    [$class: 'CleanBeforeCheckout'],
-                //    [$class: 'CleanCheckout']
+                    [$class: 'CleanBeforeCheckout'],
+                    [$class: 'CleanCheckout']
                     ],
             submoduleCfg: [],
             userRemoteConfigs: userRemoteConfigs,
         ]
         if (!extensions.empty) {
-            this.logger.debug("GitParams: " + gitParams.extensions)
+            this.logger.debug("Adding Extensions: " + extensions)
+            this.logger.debug("Old GitParams: " + gitParams.extensions)
             gitParams.extensions + extensions
-            this.logger.debug("GitParams: " + gitParams.extensions)
+            this.logger.debug("New GitParams: " + gitParams.extensions)
         }
         if (isAgentNodeGitLfsEnabled()) {
             gitParams.extensions << [$class: 'GitLFSPull']
