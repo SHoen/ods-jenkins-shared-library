@@ -190,7 +190,7 @@ class GitService {
         if (!extensions.empty) {
             this.logger.debug("Adding Extensions: " + extensions)
             this.logger.debug("Old GitParams: " + gitParams.extensions)
-            gitParams.extensions + extensions
+            gitParams.extensions += extensions
             this.logger.debug("New GitParams: " + gitParams.extensions)
         }
         if (isAgentNodeGitLfsEnabled()) {
