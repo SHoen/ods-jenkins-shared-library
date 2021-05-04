@@ -24,6 +24,7 @@ class MROPipelineUtil extends PipelineUtil {
         static final List FILE_NAMES = ["release-manager.yml", ".pipeline-config.yml"]
 
         static final String REPO_TYPE_ODS_CODE = "ods"
+        static final String REPO_TYPE_ODS_INFRA = "ods-infra"
         static final String REPO_TYPE_ODS_SERVICE = "ods-service"
         static final String REPO_TYPE_ODS_TEST = "ods-test"
 
@@ -85,7 +86,7 @@ class MROPipelineUtil extends PipelineUtil {
         }
     }
 
-    private void executeODSComponent(Map repo, String baseDir) {
+    private void executeODSComponent(Map repo, String baseDir, boolean failfast = true) {
         this.steps.dir(baseDir) {
             if (repo.data.openshift.resurrectedBuild) {
                 logger.info("Repository '${repo.id}' is in sync with OpenShift, no need to rebuild")
@@ -93,9 +94,10 @@ class MROPipelineUtil extends PipelineUtil {
             }
 
             def job
-            List<String> mainEnv = this.project.getMainReleaseManagerEnv()
-            mainEnv << "NOTIFY_BB_BUILD=${!project.isWorkInProgress}"
-            this.steps.withEnv (mainEnv) {
+            def env = []
+            env.addAll(this.project.getMainReleaseManagerEnv())
+            env << "NOTIFY_BB_BUILD=${!project.isWorkInProgress}"
+            this.steps.withEnv (env) {
                 job = this.loadGroovySourceFile("${baseDir}/Jenkinsfile")
             }
             // Collect ODS build artifacts for repo.
@@ -111,7 +113,12 @@ class MROPipelineUtil extends PipelineUtil {
             this.logger.debug("Collected ODS build artifacts for repo '${repo.id}': ${repo.data.openshift}")
 
             if (buildArtifacts.failedStage) {
-                throw new RuntimeException("Error: aborting due to previous errors in repo '${repo.id}'.")
+                repo.data << ['failedStage': buildArtifacts.failedStage]
+                if (failfast) {
+                    throw new RuntimeException("Error: aborting due to previous errors in repo '${repo.id}'.")
+                } else {
+                    this.logger.warn("Got errors in repo '${repo.id}', will fail delayed.")
+                }
             }
         }
     }
@@ -316,7 +323,7 @@ class MROPipelineUtil extends PipelineUtil {
 
                     if (repo.type?.toLowerCase() == PipelineConfig.REPO_TYPE_ODS_CODE) {
                         if (this.project.isAssembleMode && name == PipelinePhases.BUILD) {
-                            executeODSComponent(repo, baseDir)
+                            executeODSComponent(repo, baseDir, false)
                         } else if (this.project.isPromotionMode && name == PipelinePhases.DEPLOY) {
                             new DeployOdsComponent(project, steps, git, logger).run(repo, baseDir)
                         } else if (this.project.isAssembleMode && name == PipelinePhases.FINALIZE) {
@@ -324,9 +331,17 @@ class MROPipelineUtil extends PipelineUtil {
                         } else {
                             this.logger.debug("Repo '${repo.id}' is of type ODS Code Component. Nothing to do in phase '${name}' for target environment '${targetEnvToken}'.")
                         }
-                    } else if (repo.type?.toLowerCase() == PipelineConfig.REPO_TYPE_ODS_SERVICE) {
+                    } else if (repo.type?.toLowerCase() == PipelineConfig.REPO_TYPE_ODS_INFRA) {
                         if (this.project.isAssembleMode && name == PipelinePhases.BUILD) {
                             executeODSComponent(repo, baseDir)
+                        } else if (this.project.isPromotionMode && name == PipelinePhases.BUILD) {
+                            executeODSComponent(repo, baseDir)
+                        } else {
+                            this.logger.debug("Repo '${repo.id}' is of type ODS Infrastructure as Code Component/Configuration Management. Nothing to do in phase '${name}' for target environment'${targetEnvToken}'.")
+                        }
+                    } else if (repo.type?.toLowerCase() == PipelineConfig.REPO_TYPE_ODS_SERVICE) {
+                        if (this.project.isAssembleMode && name == PipelinePhases.BUILD) {
+                            executeODSComponent(repo, baseDir, false)
                         } else if (this.project.isPromotionMode && name == PipelinePhases.DEPLOY) {
                            
                             new DeployOdsComponent(project, steps, git, logger).run(repo, baseDir)
