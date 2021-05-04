@@ -362,9 +362,10 @@ class Project {
         this.data.jira.undoneDocChapters = this.computeWipDocChapterPerDocument(this.data.jira)
 
         if (this.hasWipJiraIssues()) {
-            def message = 'Pipeline-generated documents are watermarked ' +
-                    "'${LeVADocumentUseCase.WORK_IN_PROGRESS_WATERMARK}' " +
-                    'since the following issues are work in progress: '
+            def message = this.isWorkInProgress ?'Pipeline-generated documents are watermarked ' +
+                "'${LeVADocumentUseCase.WORK_IN_PROGRESS_WATERMARK}' " +
+                'since the following issues are work in progress: ':
+                "The pipeline failed since the following issues are work in progress (no documents were generated): "
 
             this.getWipJiraIssues().each { type, keys ->
                 def values = keys instanceof Map ? keys.values().flatten() : keys
@@ -373,6 +374,9 @@ class Project {
                 }
             }
 
+            if(!this.isWorkInProgress){
+                throw new IllegalArgumentException(message)
+            }
             this.addCommentInReleaseStatus(message)
         }
 
@@ -1196,7 +1200,7 @@ class Project {
         loadVersionDataFromJira(this.buildParams.version)
     }
 
-    protected Map loadVersionDataFromJira(String versionName) {
+    Map loadVersionDataFromJira(String versionName) {
         if (!this.jiraUseCase) return [:]
         if (!this.jiraUseCase.jira) return [:]
 
