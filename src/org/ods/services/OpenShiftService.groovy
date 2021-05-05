@@ -948,7 +948,10 @@ class OpenShiftService {
         def targetClusterToken = getTargetClusterCreds()
         steps.sh(
             script: """       
-              skopeo --debug copy docker://${sourceImageFull} docker://${targetImageFull} --src-registry-token ${targetClusterToken} --dest-tls-verify=false --dest-registry-token ${targetClusterToken}"
+              skopeo --debug copy docker://${sourceImageFull} docker://${targetImageFull} \
+                --src-registry-token ${targetClusterToken} \
+                --dest-tls-verify=false \
+                --dest-registry-token ${targetClusterToken}
             """,
             label: "Push image ${sourceImageFull} into ${project}/${targetImageRef}"
         )
