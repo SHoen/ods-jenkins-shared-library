@@ -940,12 +940,15 @@ class OpenShiftService {
         def dockerConfigJson = steps.readJSON(text: dockerConfig)
         def auths = dockerConfigJson.auths
         def authKeys = auths.keySet()
-        if (authKeys.size() > 1) {
+                if (authKeys.size() > 1) {
             throw new RuntimeException(
                 "Error: 'dockerconfigjson' of secret '${secretName}' has more than one registry host entry."
             )
         }
-        "${auths.[0].username}:${auths.[0].password}"
+        def usrname = auths.get(authKeys.first()).get("username")
+        def pw = auths.get(authKeys.first()).get("password")
+
+        "${usrname}:${pw}"
     }
     private void pushImageToTargetRegistry(
         String project,
