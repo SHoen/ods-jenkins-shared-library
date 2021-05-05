@@ -394,7 +394,7 @@ class OpenShiftService {
         String sourceProject,
         String sourceTag,
         String targetTag) {
-        importImageFromSourceRegistry(
+        pushImageToTargetRegistry(
             project, sourceRegistrySecret, sourceProject, "${name}:${sourceTag}", "${name}:${targetTag}"
         )
     }
@@ -416,7 +416,7 @@ class OpenShiftService {
         String sourceProject,
         String imageSha,
         String imageTag) {
-        importImageFromSourceRegistry(
+        pushImageToTargetRegistry(
             project, sourceRegistrySecret, sourceProject, "${name}@${imageSha}", "${name}:${imageTag}"
         )
     }
@@ -925,6 +925,33 @@ class OpenShiftService {
                 ${logger.ocDebugFlag}
             """,
             label: "Import image ${sourceImageFull} into ${project}/${targetImageRef}"
+        )
+    }
+    private String getTargetClusterCreds() {
+        steps.sh(
+            script: 'oc whoami -t',
+            label: 'Get target cluster token',
+            returnStdout: true
+        ).toString().trim()
+    }
+    private void pushImageToTargetRegistry(
+        String project,
+        String sourceRegistrySecret,
+        String sourceProject,
+        String sourceImageRef,
+        String targetImageRef) {
+        def sourceClusterRegistryHost = getSourceClusterRegistryHost(project, sourceRegistrySecret)
+        def targetCusterRegistryHost = getSourceClusterRegistryHost(project, "mro-img-push")
+        def sourceImageFull = "${sourceClusterRegistryHost}/${sourceProject}/${sourceImageRef}"
+
+        def targetClusterRegistryHost = get(project, sourceRegistrySecret)
+        def targetImageFull = "${targetCusterRegistryHost}/${project}/${targetImageRef}"
+        def targetClusterToken = getTargetClusterCreds()
+        steps.sh(
+            script: """       
+              skopeo --debug copy docker://${sourceImageFull} docker://${targetImageFull} --src-registry-token ${targetClusterToken} --dest-tls-verify=false --dest-registry-token ${targetClusterToken}"
+            """,
+            label: "Push image ${sourceImageFull} into ${project}/${targetImageRef}"
         )
     }
 
