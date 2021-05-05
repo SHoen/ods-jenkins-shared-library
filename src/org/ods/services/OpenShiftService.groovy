@@ -944,7 +944,6 @@ class OpenShiftService {
         def targetCusterRegistryHost = getSourceClusterRegistryHost(project, "mro-img-push")
         def sourceImageFull = "${sourceClusterRegistryHost}/${sourceProject}/${sourceImageRef}"
 
-        def targetClusterRegistryHost = get(project, sourceRegistrySecret)
         def targetImageFull = "${targetCusterRegistryHost}/${project}/${targetImageRef}"
         def targetClusterToken = getTargetClusterCreds()
         steps.sh(
