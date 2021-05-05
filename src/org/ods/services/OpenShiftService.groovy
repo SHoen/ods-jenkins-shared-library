@@ -927,12 +927,25 @@ class OpenShiftService {
             label: "Import image ${sourceImageFull} into ${project}/${targetImageRef}"
         )
     }
-    private String getTargetClusterCreds() {
-        steps.sh(
-            script: 'oc whoami -t',
-            label: 'Get target cluster token',
-            returnStdout: true
-        ).toString().trim()
+
+     @TypeChecked(TypeCheckingMode.SKIP)
+    private String getRegistryCreds(String project, String secretName) {
+        def dockerConfig = steps.sh(
+            script: """
+            oc -n ${project} get secret ${secretName} --output="jsonpath={.data.\\.dockerconfigjson}" | base64 --decode
+            """,
+            returnStdout: true,
+            label: "read source cluster registry host from ${secretName}"
+        )
+        def dockerConfigJson = steps.readJSON(text: dockerConfig)
+        def auths = dockerConfigJson.auths
+        def authKeys = auths.keySet()
+        if (authKeys.size() > 1) {
+            throw new RuntimeException(
+                "Error: 'dockerconfigjson' of secret '${secretName}' has more than one registry host entry."
+            )
+        }
+        "${authKeys.first().username}:${authKeys.first().password}"
     }
     private void pushImageToTargetRegistry(
         String project,
@@ -941,17 +954,18 @@ class OpenShiftService {
         String sourceImageRef,
         String targetImageRef) {
         def sourceClusterRegistryHost = getSourceClusterRegistryHost(project, sourceRegistrySecret)
-        def targetCusterRegistryHost = getSourceClusterRegistryHost(project, "mro-img-push")
         def sourceImageFull = "${sourceClusterRegistryHost}/${sourceProject}/${sourceImageRef}"
 
+        def targetCusterRegistryHost = getSourceClusterRegistryHost(project, "mro-img-push")
         def targetImageFull = "${targetCusterRegistryHost}/${project}/${targetImageRef}"
-        def targetClusterToken = getTargetClusterCreds()
+        def targetRegistryCreds = getRegistryCreds(project,"mro-img-push")
+        def sourceRegistryCreds = getRegistryCreds(project,sourceRegistrySecret)
         steps.sh(
             script: """       
               skopeo --debug copy docker://${sourceImageFull} docker://${targetImageFull} \
-                --src-registry-token ${targetClusterToken} \
+                --src-creds ${sourceRegistryCreds} \
                 --dest-tls-verify=false \
-                --dest-registry-token ${targetClusterToken}
+                --dest-creds ${targetRegistryCreds}
             """,
             label: "Push image ${sourceImageFull} into ${project}/${targetImageRef}"
         )
