@@ -945,7 +945,7 @@ class OpenShiftService {
                 "Error: 'dockerconfigjson' of secret '${secretName}' has more than one registry host entry."
             )
         }
-        "${authKeys.first().username}:${authKeys.first().password}"
+        "${auths.first().username}:${authKeys.first().password}"
     }
     private void pushImageToTargetRegistry(
         String project,
