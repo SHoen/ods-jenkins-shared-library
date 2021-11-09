@@ -264,8 +264,14 @@ class BitbucketService {
             String username = script.env.USERNAME
             tokenMap['username'] = username
             String password = script.env.PASSWORD
+<<<<<<< HEAD
             logger.info('Username: ' + username)
             logger.info(password)
+=======
+            logger.debug('Username: ' + username)
+            logger.debug(password)
+
+>>>>>>> 8c5503ecccc7b2f8f9735635b44e879223a2a413
             String url = "${bitbucketUrl}/rest/access-tokens/1.0/users/${username.replace('@', '_')}"
             script.echo "Requesting token via PUT ${url} with payload=${payload}"
             res = script.sh(
