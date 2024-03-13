@@ -114,14 +114,15 @@ class HelmDeploymentStrategy extends AbstractDeploymentStrategy {
 
     private void helmUpgrade(String targetProject) {
         steps.dir(options.chartDir) {
+            def gpgAgentConf = """
+            no-tty
+            batch
+            """
             jenkins.maybeWithPrivateKeyCredentials(options.helmPrivateKeyCredentialsId) { String pkeyFile ->
                 if (pkeyFile) {
-                    def gpg-agent-conf = """
-                    no-tty
-                    batch
-                    """
+
                     steps.sh(script: "mkdir ~/.gnupg", label: 'Create folder for gnupg config')
-                    steps.sh(script: "echo ${gpg-agent-conf} > ~/.gnupg/gpg-agent.conf", label: 'Create folder for gnupg config')
+                    steps.sh(script: "echo ${gpgAgentConf} > ~/.gnupg/gpg-agent.conf", label: 'Create folder for gnupg config')
                     steps.sh(script: "gpg --import ${pkeyFile}", label: 'Import private key into keyring')
                     steps.sh(script: "export GPG_TTY=${tty} && gpg --keyring secring.gpg --export-secret-keys > ~/.gnupg/secring.gpg", label: 'Create secring file for old gpg version')
 
