@@ -120,7 +120,7 @@ class HelmDeploymentStrategy extends AbstractDeploymentStrategy {
             """
             jenkins.maybeWithPrivateKeyCredentials(options.helmPrivateKeyCredentialsId) { String pkeyFile ->
                 if (pkeyFile) {
-                    steps.sh(script: "echo ${pkeyFile} >> ~/.gnupg/secring.gpg", label: 'Import private key into keyring')
+                    steps.sh(script: "mkdir ~/.gnupg && echo ${pkeyFile} >> ~/.gnupg/secring.gpg", label: 'Import private key into keyring')
                     // steps.sh(script: "gpg --batch --allow-secret-key-import --import ${pkeyFile}", label: 'Import private key into keyring')
                 }
 
