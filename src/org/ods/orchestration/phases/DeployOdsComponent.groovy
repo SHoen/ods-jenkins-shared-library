@@ -201,6 +201,7 @@ class DeployOdsComponent {
 
                     if (pkeyFile) {
                         steps.sh(script: "gpg --batch --import ${pkeyFile}", label: 'Import private key into keyring')
+                        steps.sh(script: "gpg --keyring secring.gpg --export-secret-keys > ~/.gnupg/secring.gpg", label: 'Create secring file for old gpg version')
                     }
                     os.helmUpgrade(
                         project.targetProject,
