@@ -116,7 +116,7 @@ class HelmDeploymentStrategy extends AbstractDeploymentStrategy {
         steps.dir(options.chartDir) {
             jenkins.maybeWithPrivateKeyCredentials(options.helmPrivateKeyCredentialsId) { String pkeyFile ->
                 if (pkeyFile) {
-                    steps.sh(script: "gpg --import ${pkeyFile}", label: 'Import private key into keyring')
+                    steps.sh(script: "gpg --batch --import ${pkeyFile}", label: 'Import private key into keyring')
                 }
 
                 // we add two things persistent - as these NEVER change (and are env independent)

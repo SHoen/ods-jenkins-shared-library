@@ -200,7 +200,7 @@ class DeployOdsComponent {
                     }
 
                     if (pkeyFile) {
-                        steps.sh(script: "gpg --import ${pkeyFile}", label: 'Import private key into keyring')
+                        steps.sh(script: "gpg --batch --import ${pkeyFile}", label: 'Import private key into keyring')
                     }
                     os.helmUpgrade(
                         project.targetProject,
