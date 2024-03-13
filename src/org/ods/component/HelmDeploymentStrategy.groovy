@@ -120,9 +120,10 @@ class HelmDeploymentStrategy extends AbstractDeploymentStrategy {
             """
             jenkins.maybeWithPrivateKeyCredentials(options.helmPrivateKeyCredentialsId) { String pkeyFile ->
                 if (pkeyFile) {
-
                     steps.sh(script: "mkdir ~/.gnupg", label: 'Create folder for gnupg config')
-                    steps.sh(script: "echo \"${gpgAgentConf}\” > ~/.gnupg/gpg-agent.conf", label: 'Create folder for gnupg config')
+                    new File("~/.gnupg/gpg-agent.conf").withWriter { writer -> 
+                        writer << gpgAgentConf
+                    }
                     steps.sh(script: "gpg --import ${pkeyFile}", label: 'Import private key into keyring')
                     steps.sh(script: "export GPG_TTY=${tty} && gpg --keyring secring.gpg --export-secret-keys > ~/.gnupg/secring.gpg", label: 'Create secring file for old gpg version')
 
