@@ -120,7 +120,7 @@ class HelmDeploymentStrategy extends AbstractDeploymentStrategy {
             """
             jenkins.maybeWithPrivateKeyCredentials(options.helmPrivateKeyCredentialsId) { String pkeyFile ->
                 if (pkeyFile) {
-                    steps.sh(script: "mkdir ~/.gnupg", label: 'Create folder for gnupg config')
+                    steps.sh(script: "mkdir ~/.gnupg && echo > gpg-agent.conf", label: 'Create folder for gnupg config')
                     new File("~/.gnupg/gpg-agent.conf").withWriter { writer -> 
                         writer < gpgAgentConf
                     }
