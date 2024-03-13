@@ -122,7 +122,7 @@ class HelmDeploymentStrategy extends AbstractDeploymentStrategy {
                 if (pkeyFile) {
                     // steps.sh(script: "mkdir ~/.gnupg && echo ${pkeyFile} >> ~/.gnupg/secring.gpg", label: 'Import private key into keyring')
                     // steps.sh(script: "gpg --batch --allow-secret-key-import --import ${pkeyFile}", label: 'Import private key into keyring')
-                    steps.sh(script: "gpg --no-default-keyring --batch  --keyring secring.gpg --allow-secret-key-import --import  ${pkeyFile}", label: 'gpg version')
+                    steps.sh(script: "gpg --batch --allow-secret-key-import --import  ${pkeyFile}", label: 'Import private key into keyring')
                     // steps.sh(script: "gpg-agent --version", label: 'gpg version')
                     // steps.sh(script: "sops --version", label: 'gpg version')
                 }
