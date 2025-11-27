@@ -170,6 +170,17 @@ class GitService {
         def extensions,
         def userRemoteConfigs,
         boolean doGenerateSubmoduleConfigurations = false) {
+        // Add pull request refspec to userRemoteConfigs
+        def updatedUserRemoteConfigs = userRemoteConfigs.collect { config ->
+            def updatedConfig = config.clone() as Map
+            if (updatedConfig.refspec) {
+                updatedConfig.refspec = "${updatedConfig.refspec},+refs/pull-requests/*/from:pr/*"
+            } else {
+                updatedConfig.refspec = "+refs/pull-requests/*/from:pr/*"
+            }
+            updatedConfig
+        }
+        
         def gitParams = [
             $class: 'GitSCM',
             branches: branches,
@@ -185,7 +196,7 @@ class GitService {
                     [$class: 'CleanCheckout']
                     ],
             submoduleCfg: [],
-            userRemoteConfigs: userRemoteConfigs,
+            userRemoteConfigs: updatedUserRemoteConfigs,
         ]
         if (!extensions.empty) {
             gitParams.extensions += extensions
